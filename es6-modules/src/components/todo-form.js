@@ -1,6 +1,6 @@
 import { createElement } from '../lib';
 
-export class TodoForm {
+export default class TodoForm {
   constructor(onSubmit) {
     this.newTask = '';
     this.element = null;
