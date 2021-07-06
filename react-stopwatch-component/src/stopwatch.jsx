@@ -10,6 +10,7 @@ export default class Stopwatch extends React.Component {
   clickHandler(event) {
     if (event.target.closest('.control-button')) {
       if (event.target.closest('.play')) {
+        this.setState({ clockOn: true });
         this.timerID = setInterval(() => this.timer(), 1000);
       } else if (event.target.closest('.pause')) {
         clearInterval(this.timerID);
@@ -23,8 +24,7 @@ export default class Stopwatch extends React.Component {
 
   timer() {
     this.setState(prevState => ({
-      time: prevState.time + 1,
-      clockOn: true
+      time: prevState.time + 1
     }));
   }
 
