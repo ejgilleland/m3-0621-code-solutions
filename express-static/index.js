@@ -11,7 +11,3 @@ app.listen(3000, () => {
   // eslint-disable-next-line no-console
   console.log('Express server listening on port 3000');
 });
-
-console.log('__dirname:', __dirname);
-console.log('publicDir: ', publicDir);
-console.log('publicFile: ', publicFile);
