@@ -17,7 +17,7 @@ export default class App extends React.Component {
     fetch('/api/todos')
       .then(res => res.json())
       .then(data => this.setState({ todos: data }))
-      .catch(err => console.error('err: ', err));
+      .catch(err => console.error('error: ', err));
   }
 
   addTodo(newTodo) {
@@ -30,38 +30,41 @@ export default class App extends React.Component {
     };
     fetch('/api/todos', todoInit)
       .then(res => {
-        if (res.status === 201) {
+        if (res.ok) {
           res.json()
             .then(data => {
               this.setState(state => ({
                 todos: state.todos.concat([data])
               }));
             });
-        }
-      });
+        } else throw new Error('Network response failed');
+      })
+      .catch(err => console.error('error: ', err));
   }
 
   toggleCompleted(todoId) {
-    const currentStatus = this.state.todos[todoId - 1].isCompleted;
-    const toggleCompleted = { isCompleted: !currentStatus };
+    const currentIndex = this.state.todos.findIndex(element => element.todoId === todoId);
+    const currentStatus = this.state.todos[currentIndex].isCompleted;
+    const toggleStatus = { isCompleted: !currentStatus };
     const toggleInit = {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(toggleCompleted)
+      body: JSON.stringify(toggleStatus)
     };
     fetch(`/api/todos/${todoId}`, toggleInit)
       .then(res => {
-        if (res.status === 200) {
+        if (res.ok) {
           res.json()
             .then(data => {
               this.setState(state => {
-                return (state.todos[todoId - 1] = data);
+                return (state.todos[currentIndex] = data);
               });
             });
-        }
-      });
+        } else throw new Error('Network response failed');
+      })
+      .catch(err => console.error('error: ', err));
   }
 
   render() {
