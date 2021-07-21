@@ -1,0 +1,49 @@
+* {
+  box-sizing: border-box;
+}
+
+.carousel {
+  font-size: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.arrow-right,
+.arrow-left {
+  padding-top: 200px;
+  font-size: 55px;
+  width: 50px;
+  height: 476px;
+  transition: font-size 0.25s ease-in-out, background-color 0.25s ease-in-out;
+  text-align: center;
+}
+
+.arrow-right:hover,
+.arrow-left:hover {
+  cursor: pointer;
+  font-size: 60px;
+  background-color: lightblue;
+  transition: font-size 0.25s ease-in-out, background-color 0.25s ease-in-out;
+}
+
+.index {
+  list-style-type: none;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.index > li {
+  padding: 0.25rem;
+}
+
+.index > li:hover {
+  cursor: pointer;
+}
+
+.carousel-image-container > img {
+  height: 400px;
+  padding: 1rem;
+  user-select: none;
+}
