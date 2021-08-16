@@ -1,0 +1,257 @@
+### Basic page load (not logged in/no token):
+
+App is rendered on the first pass. Due to state.isAuthorizing being true in the
+constructor, the render method returns null. After the page is rendered,
+componentDidMount is called, setting a hashchange event listener on the Global
+window object. Next, we attempt to get a token for the user from local storage
+under ('react-context-jwt'). We check if a token exists (check if it's truthy).
+For this scenario (sign up), it is not truthy so user gets a value of false.
+The state.user is updated with this user value and state.isAuthorizing is
+updated to false.
+
+Render is called again, returning a navbar and pageContainer component.
+Within the pageContainer, the renderpage method is called to determine what the
+children of the pageContainer will be. If the path (this.state.route, aka
+window.location.hash) is empty, we return the Home child component.
+
+However, within Home, if user was a falsy value (ie, it doesn't exist), which
+which was passed from the App's state to the context, then we call the Redirect
+function with a prop of "sign-in", putting us on the sign-in page (#sign-in).
+
+This calls the hashchange event listener callback, which calls setState on the
+router property, assigning it the value of window.location.hash.
+
+This re-calls the render method, which ultimately results in the renderPage
+method being called again, only path === 'sign-in' this time, so the Auth class
+component is rendered. It obtains the route from this.context, which checks if
+path is strictly equal to 'sign-in', and returns a relevant sign-in message and
+sign in auth form.
+
+
+
+### User can sign up.
+
+Per above, the default page that ultimately loads when no user is logged in is
+the sign-in page. From here, the `Register now` link can be clicked under the
+sign-in form.
+
+Clicking the link changes the hash of the url to #sign-up, which triggers the
+`hashchange` event listener callback that was added to the window in the
+`componentDidMount` method of the App component. This changes `state.route`to
+the current hash route (parsed via parse-route.js), causing the page to
+re-render. This, time the `Auth` page is still rendered as the child to `PageContainer`
+via `renderPage`, but the context value for route has changed, so sign-up text
+and actions are displayed instead, with the `action` prop (`sign-up`, per the
+current `route.path` context) being passed to the `AuthForm` component.
+
+In `AuthForm`, a sign-up form is rendered, per the aforementioned context
+provided. On submission of the form (that is, username and password provided
+and the button saying "Register" is pressed), the `handleSubmit` method is
+called. Within this method, the init object is set up for the fetch request we
+are about to do: method, headers, request body (which is taken from the
+`this.state` of the `AuthForm`, and includes the username and password, as taken
+from the inputs.)
+
+The action prop passed from the `AuthPage` determines the endpoint used in the
+fetch request (sign-in vs sign-up), which at this point has been established as
+`/api/auth/sign-up`. The fetch request is then made, using the provided
+init: `POST` method, `Content-Type` of `application/json`, and request body of
+`this.state.username` & `this.state.password`, which were taken from the form.
+endpoint.
+
+This POST /api/auth/sign-up/ endpoint is defined in './server/public/index.js'
+First a `const` for `username` and a const for `password` are assigned from the
+same properties in the request's body. If at least one of the two is missing, a
+`400` error is thrown, which is then passed to the `errorMiddleware` defined in
+`error-middleware.js`.
+
+If both `username` and `password are present, then the `argon2.hash()` method
+is called on the password. When the promise is fulfilled, the callback function
+in the following `then` method is called, creating a parameterized sql query to
+insert the `username` and the newly obtained `hashedPassword` into the `users`
+table, then returning the successful entry's `userId` (incrementing serial set
+in the table), `username`, & `hashedPassword`
+
+Once the parameterized query values are set, the `db.query()` method is called,
+and its returned value is being returned from the aforementioned `then` method
+that followed the `hash` method of the argon2 object.
+
+When the db.query method's promise is fulfulled, the next `then` method's
+callback is run, with a new const array of `user` being assigned from the
+`result.rows` of the `db.query()` method's result.
+
+Next, a status of `201` is set for the `app.post`'s method, along with the
+`json` method containing the newly defined `user` array.
+
+If there are any errors, they are caught by the catch method at the end, which
+calls the `next` method, passing in any errors, which will be handled by the
+error middleware.
+
+Back in the `AuthForm`, after the `fetch`'s promis is fulfilled, the first
+`.then`'s callback parses the response's json values (res.json()), which creates
+a new promise.
+
+Once the new promise fulfilled, it will route differently based on the action
+provided to the `AuthForm`'s props. For this case, the `window.location.hash`
+will be changed to sign-in once the response is received, causing the
+`hashChange` event to fire and its callback to be called, re-rendering the
+sign-in page. The user can sign in with the newly-created credentials at
+this point.
+
+
+
+### User can sign in.
+
+When the page is at the `#sign-in` location, the sign-in `AuthForm` is
+displayed, with its `action` prop set as the current path of `sign-in`. Once the
+user submits their login data, the `handleSubmit` method is again called, with
+the fetch request taking the different endpoint of `/api/auth/sign-in`,
+but also with a `POST` method and a request body of `username` and `password`
+taken from the `AuthForm`'s state.
+
+This time the `app.post` method being called in './server/public/index.js' is
+different. The consts for `username` and `password` are both being assigned
+from the request body again, and the route once again checks that they both
+exist before proceeding, though this time a  `401` error is thrown with the
+error text `invalid login`.
+
+Afterwards, a parameterized sql query is again set up, this time for a select
+statement selecting `username` and `hashedPassword` from the `users` table,
+where the `username` is the one passed into the post request's body.
+
+the `db.query` method is called at this time, returning a promise. When this
+promise is fulfilled, the following `then` method's very hefty callback function
+is called.
+
+Within the callback, there is one argument of the result of the query being passed.
+
+the result.rows value is being assigned to a new const array named user.
+
+If `user` is a falsy value (ie, result is empty), then a new ClientError is
+thrown with a value of `401` and a body of `invalid login`. The `catch` method's
+callback will be called at this time, which will call the `next` method and pass
+in the error that was thrown, which will then be handled by the `errorMiddlware`
+
+If `user` is not falsy, (ie, the query returned a `username` and
+`hashedPassword`), then new consts of `userId` and `hashedPassword` are assigned
+from the user array and the `argon2.verify()` method is called, using the
+`hashedPassword` from the `users` database and the `password` from the request
+body to compare.
+
+When the verify method's promise is fulfilled, the response is passed to the
+following `then` method's callback function as the isMatching argument. If the
+`password` does not match the `hashedPassword` from the databse, a new
+`ClientError` is thrown, with a status of `401` and a body of `invalid login`,
+which is then passed to the `catch` method which passes it as an argument to
+the `next` method, which will be then be handled by the `errorMiddleware`.
+
+If the `password` matches the `hashedPassword`, then an object literal is
+assigned to a new const named `payload`, with properties of `userId` from the
+`db.query` response and the `username` from the request body.
+
+Then, the `jwt.sign()` method is called, with two arguments of the `payload`
+object and the TOKEN_SECRET from process.env. The return value of this method is
+assigned to the new const named `token`.
+
+Lastly in the callback function of the `then` method from the db object
+(yes, we're still in there), we call the `json` method of the `res` object,
+passing in one argument: an object with properties of `token`, and `user`, and
+this `user` property is itself an object consisting of the `payload` object.
+
+When the promise is fulfilled and the response is received from the fetch
+request (it will be the json data mentioned just above as the response), the
+`json()` method is once again called, but the callback function for the
+fulfilled promise from `res.json()` will behave differently:
+
+Because `props.action` was `sign-in`, we check that the response (called
+`result` here) contains a `user` and `token`. If so, then the
+this.props.onSignIn method is called (which itself is the handleSignIn method
+from the `App` component, passed to `AuthForm` as a prop via context provided to
+`Authpage`). in this method, consts of `user` and `token` are assigned from the
+`result`. Next, we call the `window.localStorage.setItem` method with two
+arguments: a string of 'react-context-jwt' and `token`, then we set the state
+with the `user` const, which causes `render` to re-run.
+
+The path has not changed at this point, so when the page has rendered, the
+`renderPage` method is called, returning `Auth`. Within `Auth`'s `render`
+method, `user` is obtained from `this.context`, and if `user` is truthy (ie,
+`user` exists and isn't `null`), then instead, `<Redirect to="">` is returned,
+which changes the hash to just '#', firing the page's `hashChange` event, which
+sets `App`'s `state.route` to the current hash location, which cause the
+`render` method to run again, this time with the `renderPage` method returning
+`<Home />`, which will return the main page (which made me laugh and roll my
+eyes).
+
+
+
+### User can stay signed in (even if they refresh the page).
+
+If the client refreshes or revisits the page (assuming they're on the home
+page, hash route #), the `state` is assigned in the constructor with
+`user: null`, `isAuthorizing: true`, & `route: parseRoute(window.location.hash)`
+
+When the `render` method is first called, `null` is returned, because of the
+`if` statement at the beginning of the method, checking if
+`this.state.isAuthorizing` is true. Once the render method completes, nothing
+is rendered, then the `componentDidMount` method is called, which first adds
+the `hashChange` event listener and then calls the `window.localStorage.getItem`
+method with one argument of `'react-context-jwt'` and assign the return value to
+the new const `token`.
+Next, we check if `token` is truthy (ie, if a token existed in local storage for
+this page). If the `token` exists, we call the `decodeToken` function from
+`./lib/decode-token.js`, passing in one argument of the `token` we just defined.
+
+Within this function, we split the token by the character '.' using the `split`
+method, then assign this return value to a new const array named
+`encodedPayload`. Then, we call the `atob` method passing in one argument of the
+array `encodedPayload`. The return value of the `atob` method is assigned to the
+new const `jsonPayload`. We then call the `JSON.Parse` method with one argument
+of the `jsonPayload` const`, and assign the return value to a new const named
+`payload`, which we then return.
+
+The `decodeToken function`, which returns the `payload` above is then assigned
+to the const `user` in the `componentDidMount` method, and, finally, we call the
+`this.setState` method, passing in the `user` to update the `state.user`
+property, and `isAuthorizing: false` to update `state.isAuthorizing`. This
+cause the `render` method to re-run, which will ultimately
+return `<Home />` from the `renderPage` method.
+
+If visiting the page via an established hash route while a valid token exists
+(that is, visiting `#sign-in` or `#sign-up`), then the steps above apply for
+checking for the token apply, and when the `render` method of the `App`
+component is called, `Auth` will be returned from `AuthPage` in `auth.jsx`.
+
+`AuthPage`'s `render` method checks if `user` exists by checking its
+truthy value. Because the `user` was set to `this.state`, which was
+then passed to the context of several components (including `AuthPage`),
+`<Redirect to="" />` is returned from `AuthPage`, which will change the hash
+route to '#' only, which will then fire the `hashChange` event, which will
+ultimately re-render the page again, this time returning `<Home />`, as an
+authorized user is logged in.
+
+
+
+### User can sign out.
+
+The `handleSignOut` method is passed to children, of particular interest in this
+scenario, it is passed to the `Navbar` component. When the `Navbar` is rendering
+the page for a logged-in user, a sign-out button appears. The `onClick` property
+of this button has a value of a JavaScript expression which contains
+`handleSignOut` method from the passed context. When the user clicks this
+button, `handleSignOut` is called, which calls the
+`window.localStorage.removeItem` method with an argument of
+`'react-context-jwt'`, then `this.setState()` is called passing in one argument
+of `{user: null}`. This will cause the `render` method to run.
+
+If the hash route is currently on '#', which will return the `<Home />`
+component from the `renderPage` method, then, within the `Home` component's
+`render` method, it first checks if `this.context.user` (which is assigned its
+value from the `App` components `state.user`) is falsy (ie, if it is `null` or
+empty). If it is, the `<Redirect to="sign-in" />` is returned, which, as above,
+will change the hash route according to the `props` that was passed into it.
+
+In this case, `props.to` is `'sign-in'`, which will change the url's hash to
+this value, firing the `hashChange` event, which will set the `App` component's
+`state.route` to the return value from `parseRoute(window.location.hash)`, which
+will re-render the page, and return `Auth` from `renderPage`, which will return
+the sign-in page, according to the current hash route.
